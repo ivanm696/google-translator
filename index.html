@@ -113,7 +113,7 @@
                         <option value="it">Italiano</option>
                         <option value="pt">Português</option>
                         <option value="ro">Română</option>
-                        <option value="mo">Moldovenesc</option>
+                        <option value="mol">Moldovenesc</option>
                         <option value="uk">Українська</option>
                         <option value="bg">Български</option>
                         <option value="pl">Polski</option>
@@ -140,7 +140,7 @@
                         <option value="it">Italiano</option>
                         <option value="pt">Português</option>
                         <option value="ro">Română</option>
-                        <option value="mo">Moldovenesc</option>
+                        <option value="mol">Moldovenesc</option>
                         <option value="uk">Українська</option>
                         <option value="bg">Български</option>
                         <option value="pl">Polski</option>
@@ -160,10 +160,16 @@
     </div>
 
     <script>
+        // Преобразование ISO 639-3 кодов в ISO 639-1 для API
+        const iso3to1 = {
+            'mol': 'ro',  // Молдавский (ISO 639-3) → Румынский (ISO 639-1)
+            'auto': 'auto'
+        };
+        
         async function translate() {
             const sourceText = document.getElementById('sourceText').value.trim();
-            const sourceLang = document.getElementById('sourceLang').value;
-            const targetLang = document.getElementById('targetLang').value;
+            let sourceLang = document.getElementById('sourceLang').value;
+            let targetLang = document.getElementById('targetLang').value;
             const translatedArea = document.getElementById('translatedText');
             
             if (!sourceText) {
@@ -171,11 +177,15 @@
                 return;
             }
             
+            // Преобразуем коды языков для API
+            const apiSourceLang = iso3to1[sourceLang] || sourceLang;
+            const apiTargetLang = iso3to1[targetLang] || targetLang;
+            
             translatedArea.value = 'Переводим...';
             
             try {
-                // Используем API libre.so.com (бесплатный API)
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=${sourceLang}|${targetLang}`;
+                // Используем API mymemory.translated.net (бесплатный API)
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=${apiSourceLang}|${apiTargetLang}`;
                 
                 const response = await fetch(url);
                 const data = await response.json();
