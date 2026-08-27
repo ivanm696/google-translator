@@ -93,6 +93,13 @@
             cursor: not-allowed;
         }
         
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #999;
+        }
+        
         @media (max-width: 768px) {
             .translator-box {
                 grid-template-columns: 1fr;
@@ -162,10 +169,11 @@
         </div>
         
         <button id="translateBtn" onclick="translate()">📤 Перевести</button>
+        <div class="status">Powered by MyMemory & Google Translate</div>
     </div>
 
     <script>
-        // Преобразование кодов языков для LibreTranslate API
+        // Преобразование кодов языков для API
         const langMap = {
             'auto': 'auto',
             'ru': 'ru',
@@ -176,7 +184,7 @@
             'it': 'it',
             'pt': 'pt',
             'ro': 'ro',
-            'mol': 'ro',      // Молдавский -> Румынский в LibreTranslate
+            'mol': 'ro',      // Молдавский -> Румынский
             'uk': 'uk',
             'bg': 'bg',
             'pl': 'pl',
@@ -186,6 +194,54 @@
             'ar': 'ar',
             'hi': 'hi'
         };
+        
+        // Функция для перевода через Google Translate (через CORS прокси)
+        async function translateWithGoogle(text, sourceLang, targetLang) {
+            try {
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.responseStatus === 200 && data.responseData.translatedText) {
+                    return data.responseData.translatedText;
+                }
+                return null;
+            } catch (error) {
+                console.error('MyMemory error:', error);
+                return null;
+            }
+        }
+        
+        // Функция для перевода через Google Translate API (бесплатный неофициальный)
+        async function translateWithGoogleDirect(text, sourceLang, targetLang) {
+            try {
+                // Используем неофициальный API Google Translate
+                const url = `https://translate.googleapis.com/translate_a/element.js?cb=googleTranslateElementInit`;
+                
+                // Используем альтернативный способ через translate.google.com
+                const params = new URLSearchParams();
+                params.append('client', 'gtx');
+                params.append('sl', sourceLang);
+                params.append('tl', targetLang);
+                params.append('dt', 't');
+                params.append('q', text);
+                
+                const response = await fetch(`https://translate.google.com/translate_a/single?${params}`, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data && data[0] && data[0][0]) {
+                    return data[0][0][0];
+                }
+                return null;
+            } catch (error) {
+                console.error('Google Translate error:', error);
+                return null;
+            }
+        }
         
         async function translate() {
             const sourceText = document.getElementById('sourceText').value.trim();
@@ -207,27 +263,18 @@
             translateBtn.disabled = true;
             
             try {
-                // Используем LibreTranslate API (бесплатный, поддерживает молдавский)
-                const url = 'https://api.libretranslate.de/translate';
+                // Сначала пытаемся перевести через Google Direct API
+                let result = await translateWithGoogleDirect(sourceText, apiSourceLang, apiTargetLang);
                 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        q: sourceText,
-                        source_language: apiSourceLang,
-                        target_language: apiTargetLang
-                    }),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+                // Если не удалось, пытаемся через MyMemory
+                if (!result) {
+                    result = await translateWithGoogle(sourceText, apiSourceLang, apiTargetLang);
+                }
                 
-                const data = await response.json();
-                
-                if (data.translatedText) {
-                    translatedArea.value = data.translatedText;
+                if (result) {
+                    translatedArea.value = result;
                 } else {
-                    translatedArea.value = 'Ошибка при переводе. Попробуйте позже.';
+                    translatedArea.value = 'Ошибка при переводе. Попробуйте позже или проверьте подключение к интернету.';
                 }
             } catch (error) {
                 translatedArea.value = 'Ошибка: ' + error.message;
