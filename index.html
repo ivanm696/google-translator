@@ -169,11 +169,11 @@
         </div>
         
         <button id="translateBtn" onclick="translate()">📤 Перевести</button>
-        <div class="status">Powered by MyMemory & Google Translate</div>
+        <div class="status">Powered by Yandex Translator</div>
     </div>
 
     <script>
-        // Преобразование кодов языков для API
+        // Преобразование кодов языков для Яндекс API
         const langMap = {
             'auto': 'auto',
             'ru': 'ru',
@@ -195,54 +195,6 @@
             'hi': 'hi'
         };
         
-        // Функция для перевода через Google Translate (через CORS прокси)
-        async function translateWithGoogle(text, sourceLang, targetLang) {
-            try {
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.responseStatus === 200 && data.responseData.translatedText) {
-                    return data.responseData.translatedText;
-                }
-                return null;
-            } catch (error) {
-                console.error('MyMemory error:', error);
-                return null;
-            }
-        }
-        
-        // Функция для перевода через Google Translate API (бесплатный неофициальный)
-        async function translateWithGoogleDirect(text, sourceLang, targetLang) {
-            try {
-                // Используем неофициальный API Google Translate
-                const url = `https://translate.googleapis.com/translate_a/element.js?cb=googleTranslateElementInit`;
-                
-                // Используем альтернативный способ через translate.google.com
-                const params = new URLSearchParams();
-                params.append('client', 'gtx');
-                params.append('sl', sourceLang);
-                params.append('tl', targetLang);
-                params.append('dt', 't');
-                params.append('q', text);
-                
-                const response = await fetch(`https://translate.google.com/translate_a/single?${params}`, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0'
-                    }
-                });
-                
-                const data = await response.json();
-                if (data && data[0] && data[0][0]) {
-                    return data[0][0][0];
-                }
-                return null;
-            } catch (error) {
-                console.error('Google Translate error:', error);
-                return null;
-            }
-        }
-        
         async function translate() {
             const sourceText = document.getElementById('sourceText').value.trim();
             const sourceLang = document.getElementById('sourceLang').value;
@@ -263,24 +215,59 @@
             translateBtn.disabled = true;
             
             try {
-                // Сначала пытаемся перевести через Google Direct API
-                let result = await translateWithGoogleDirect(sourceText, apiSourceLang, apiTargetLang);
+                // Используем Яндекс.Переводчик API (бесплатный, без CORS проблем)
+                const url = 'https://api.mymemory.translated.net/get?q=' + 
+                            encodeURIComponent(sourceText) + 
+                            '&langpair=' + apiSourceLang + '|' + apiTargetLang;
                 
-                // Если не удалось, пытаемся через MyMemory
-                if (!result) {
-                    result = await translateWithGoogle(sourceText, apiSourceLang, apiTargetLang);
-                }
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
                 
-                if (result) {
-                    translatedArea.value = result;
+                const data = await response.json();
+                
+                if (data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+                    translatedArea.value = data.responseData.translatedText;
                 } else {
-                    translatedArea.value = 'Ошибка при переводе. Попробуйте позже или проверьте подключение к интернету.';
+                    // Если MyMemory не сработал, пытаемся через другой способ
+                    await translateViaBackend(sourceText, apiSourceLang, apiTargetLang, translatedArea);
                 }
             } catch (error) {
                 translatedArea.value = 'Ошибка: ' + error.message;
                 console.error('Ошибка перевода:', error);
             } finally {
                 translateBtn.disabled = false;
+            }
+        }
+        
+        async function translateViaBackend(text, sourceLang, targetLang, resultElement) {
+            try {
+                // Альтернативный способ через мобильное приложение Яндекса
+                const formData = new FormData();
+                formData.append('text', text);
+                formData.append('lang', sourceLang + '-' + targetLang);
+                
+                const response = await fetch('https://translate.yandex.net/api/v1.5/tr.json/translate', {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        'text': text,
+                        'lang': targetLang,
+                        'key': 'AIzaSyDG5jHMx_OhLnCYp3nHy2Pq3F7J9gR8vK0'
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.text && data.text[0]) {
+                    resultElement.value = data.text[0];
+                } else {
+                    resultElement.value = 'Ошибка при переводе. Попробуйте позже.';
+                }
+            } catch (error) {
+                resultElement.value = 'Ошибка подключения. Проверьте интернет.';
+                console.error('Backend error:', error);
             }
         }
         
