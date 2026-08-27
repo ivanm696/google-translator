@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Переводчик</title>
-    <script src="https://cdn.jsdelivr.net/npm/google-translate-api@2.3.0/lib/index.js"></script>
     <style>
         * {
             margin: 0;
@@ -117,7 +116,7 @@
                 <div class="language-select">
                     <label for="sourceLang">Исходный язык:</label>
                     <select id="sourceLang">
-                        <option value="auto">Определить язык</option>
+                        <option value="">Определить язык</option>
                         <option value="ru">Русский</option>
                         <option value="en">English</option>
                         <option value="es">Español</option>
@@ -126,7 +125,7 @@
                         <option value="it">Italiano</option>
                         <option value="pt">Português</option>
                         <option value="ro">Română</option>
-                        <option value="mol">Moldovenesc</option>
+                        <option value="ro">Moldovenesc</option>
                         <option value="uk">Українська</option>
                         <option value="bg">Български</option>
                         <option value="pl">Polski</option>
@@ -153,7 +152,7 @@
                         <option value="it">Italiano</option>
                         <option value="pt">Português</option>
                         <option value="ro">Română</option>
-                        <option value="mol">Moldovenesc</option>
+                        <option value="ro">Moldovenesc</option>
                         <option value="uk">Українська</option>
                         <option value="bg">Български</option>
                         <option value="pl">Polski</option>
@@ -170,36 +169,13 @@
         </div>
         
         <button id="translateBtn" onclick="translate()">📤 Перевести</button>
-        <div class="status">Powered by Free Translation API</div>
+        <div class="status">Powered by RapidAPI Translation</div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        // Преобразование кодов языков
-        const langMap = {
-            'auto': 'auto',
-            'ru': 'ru',
-            'en': 'en',
-            'es': 'es',
-            'fr': 'fr',
-            'de': 'de',
-            'it': 'it',
-            'pt': 'pt',
-            'ro': 'ro',
-            'mol': 'ro',
-            'uk': 'uk',
-            'bg': 'bg',
-            'pl': 'pl',
-            'tr': 'tr',
-            'ja': 'ja',
-            'zh': 'zh',
-            'ar': 'ar',
-            'hi': 'hi'
-        };
-        
         async function translate() {
             const sourceText = document.getElementById('sourceText').value.trim();
-            const sourceLang = document.getElementById('sourceLang').value;
+            const sourceLang = document.getElementById('sourceLang').value || 'auto';
             const targetLang = document.getElementById('targetLang').value;
             const translatedArea = document.getElementById('translatedText');
             const translateBtn = document.getElementById('translateBtn');
@@ -209,48 +185,27 @@
                 return;
             }
             
-            const apiSourceLang = langMap[sourceLang] || sourceLang;
-            const apiTargetLang = langMap[targetLang] || targetLang;
-            
             translatedArea.value = 'Переводим...';
             translateBtn.disabled = true;
             
             try {
-                // Используем бесплатный API для перевода
-                const response = await axios.get('https://api.mymemory.translated.net/get', {
-                    params: {
-                        q: sourceText,
-                        langpair: apiSourceLang + '|' + apiTargetLang
-                    }
-                });
+                // Используем простой API который работает без CORS проблем
+                const encodedText = encodeURIComponent(sourceText);
+                const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${sourceLang}|${targetLang}`;
                 
-                if (response.data.responseStatus === 200) {
-                    const translatedText = response.data.responseData.translatedText;
-                    if (translatedText && translatedText.length > 0) {
-                        translatedArea.value = translatedText;
-                    } else {
-                        translatedArea.value = 'Перевод не найден.';
-                    }
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('API Response:', data);
+                
+                if (data.responseStatus === 200 && data.responseData.translatedText) {
+                    translatedArea.value = data.responseData.translatedText;
                 } else {
-                    translatedArea.value = 'Ошибка при переводе: ' + response.data.responseStatus;
+                    translatedArea.value = 'Ошибка при переводе. Попробуйте позже.';
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                
-                // Fallback - пытаемся второй способ
-                try {
-                    const response2 = await fetch('https://api.mymemory.translated.net/get?q=' + 
-                        encodeURIComponent(sourceText) + '&langpair=' + apiSourceLang + '|' + apiTargetLang);
-                    const data = await response2.json();
-                    
-                    if (data.responseData && data.responseData.translatedText) {
-                        translatedArea.value = data.responseData.translatedText;
-                    } else {
-                        translatedArea.value = 'Ошибка подключения к API. Проверьте интернет.';
-                    }
-                } catch (err) {
-                    translatedArea.value = 'Ошибка: ' + err.message;
-                }
+                translatedArea.value = 'Ошибка подключения: ' + error.message;
             } finally {
                 translateBtn.disabled = false;
             }
